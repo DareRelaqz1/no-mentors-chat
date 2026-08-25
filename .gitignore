@@ -8,7 +8,9 @@ deploy/*.pem
 
 # Runtime data
 data/
+build/
 *.log
+*.pcap
 
 # Python
 __pycache__/
