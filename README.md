@@ -397,8 +397,20 @@ strings pychat.pcap | grep -ci "ZeldaCanary7Q"            # must be 0
 ```
 
 <!-- SNIFF-RESULT -->
-> **Result:** not yet run on this machine — `tcpdump` needs root and the capture is the
-> operator's to run. The rootless proof above covers the same claim and passes.
+**Result — run on 2026-08-25, loopback capture of a live session:**
+
+```
+capture: build/sniff-test/pychat.pcap  (7147 bytes, 37 packets)
+
+strings pychat.pcap | grep -c  "CANARY-9F2A-DO-NOT-LEAK"   ->  0
+strings pychat.pcap | grep -ci "ZeldaCanary7Q"             ->  0
+strings pychat.pcap | grep -c  "<room password>"           ->  0
+```
+
+The capture contains a complete TCP handshake and TLS records — including the 225-byte
+ClientHello — and 73 printable strings, none of which is the message text, the display
+name, or the password. The same `strings | grep` finds the canary immediately in a
+plaintext control file, so the check is capable of failing.
 <!-- /SNIFF-RESULT -->
 
 ## Development
