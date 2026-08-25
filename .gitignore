@@ -4,7 +4,9 @@
 *.key
 *.crt
 known_hosts
+known_hosts_ec2
 deploy/*.pem
+deploy/known_hosts_ec2
 
 # Runtime data
 data/
