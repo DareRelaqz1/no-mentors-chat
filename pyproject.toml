@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pychat"
+version = "0.1.0"
+description = "Encrypted group chat over WebSockets with TLS, certificate pinning and AES-256-GCM payloads"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "DareRelaqz1" }]
+keywords = ["chat", "websockets", "encryption", "asyncio"]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Communications :: Chat",
+]
+dependencies = [
+    "websockets>=12,<16",
+    "cryptography>=42",
+]
+
+[project.optional-dependencies]
+client = ["customtkinter>=5.2"]
+dev = [
+    "customtkinter>=5.2",
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+pychat-server = "pychat.server:main"
+pychat-client = "pychat.client:main"
+
+[project.urls]
+Homepage = "https://github.com/DareRelaqz1/no-mentors-chat"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pychat"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:pychat.*"]

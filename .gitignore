@@ -1,0 +1,35 @@
+# Secrets — never commit
+.env
+*.pem
+*.key
+*.crt
+known_hosts
+deploy/*.pem
+
+# Runtime data
+data/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Agent working notes
+PROGRESS.md
+
+# Editor / OS cruft
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
