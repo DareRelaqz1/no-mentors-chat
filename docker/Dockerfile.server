@@ -1,0 +1,55 @@
+# syntax=docker/dockerfile:1
+# pychat server. Build for linux/amd64 — the EC2 instance is x86_64:
+#   docker buildx build --platform linux/amd64 -f docker/Dockerfile.server -t pychat-server .
+
+FROM python:3.12-slim AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /build
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Dependencies first so a source-only change does not re-resolve them.
+# Server dependencies only: no customtkinter, no Tk. The server is headless.
+RUN pip install "websockets>=12,<16" "cryptography>=42"
+
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+RUN pip install --no-deps .
+
+
+FROM python:3.12-slim AS runtime
+
+LABEL org.opencontainers.image.title="pychat server" \
+      org.opencontainers.image.description="Encrypted group chat server over WebSockets and TLS" \
+      org.opencontainers.image.source="https://github.com/DareRelaqz1/no-mentors-chat" \
+      org.opencontainers.image.licenses="MIT"
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYCHAT_DATA_DIR=/data \
+    PYCHAT_PORT=8765
+
+COPY --from=builder /opt/venv /opt/venv
+
+# The certificate, private key and KDF salt live in /data and must stay owner-only,
+# so the runtime user owns the directory and nothing else can read it.
+RUN useradd --system --uid 10001 --create-home --shell /usr/sbin/nologin appuser \
+ && mkdir -p /data \
+ && chown appuser:appuser /data \
+ && chmod 700 /data
+
+USER appuser
+WORKDIR /home/appuser
+VOLUME ["/data"]
+EXPOSE 8765
+
+# A plain TCP connect: enough to show the listener is up, without completing a TLS
+# handshake or touching the room password.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import os,socket,sys; s=socket.create_connection(('127.0.0.1', int(os.environ.get('PYCHAT_PORT','8765'))), 3); s.close()" || exit 1
+
+ENTRYPOINT ["python", "-m", "pychat.server"]

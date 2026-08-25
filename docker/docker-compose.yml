@@ -1,0 +1,26 @@
+# Local development convenience. Run from the repository root:
+#     docker compose -f docker/docker-compose.yml up --build
+#
+# The room password comes from a .env file next to this one, or from the environment.
+# It is never written into this file.
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    image: darerelaqz1/chat-app:server-latest
+    container_name: pychat-server
+    restart: unless-stopped
+    ports:
+      - "${PYCHAT_PORT:-8765}:8765"
+    environment:
+      PYCHAT_ROOM_PASSWORD: ${PYCHAT_ROOM_PASSWORD:?set PYCHAT_ROOM_PASSWORD in your environment or a .env file}
+      PYCHAT_PORT: "8765"
+      PYCHAT_DATA_DIR: /data
+      PYCHAT_PUBLIC_HOST: ${PYCHAT_PUBLIC_HOST:-}
+      PYCHAT_LOG_LEVEL: ${PYCHAT_LOG_LEVEL:-INFO}
+    volumes:
+      - pychat-data:/data
+
+volumes:
+  pychat-data:
