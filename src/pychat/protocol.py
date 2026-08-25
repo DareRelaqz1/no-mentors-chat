@@ -219,21 +219,29 @@ def parse_server_hello(frame: dict[str, Any]) -> tuple[int, bytes, bytes]:
     return version, salt, nonce
 
 
-def parse_auth(frame: dict[str, Any]) -> tuple[int, str, bytes]:
-    """Validate an auth frame, returning (version, normalized_name, proof)."""
+def parse_auth(frame: dict[str, Any]) -> tuple[int, str, str, bytes]:
+    """Validate an auth frame, returning (version, raw_name, display_name, proof).
+
+    Both forms of the name are returned on purpose. The HMAC proof is computed by the
+    client over the name exactly as it transmitted it, so the server must verify against
+    ``raw_name``; ``display_name`` is the normalised form used for the roster. Verifying
+    against the normalised form instead would reject any name that needed normalising
+    with an indistinguishable "bad credentials", which is a miserable thing to debug.
+    """
     if frame.get("t") != "auth":
         raise ProtocolError("expected auth")
     version = frame.get("version")
     if not isinstance(version, int):
         raise ProtocolError("auth version must be an integer")
-    name = normalize_name(frame.get("name"))
+    raw_name = frame.get("name")
+    display_name = normalize_name(raw_name)
     try:
         proof = b64d(frame.get("proof", ""))
     except ValueError as exc:
         raise ProtocolError("auth proof is not valid base64") from exc
     if len(proof) != 32:
         raise ProtocolError("auth proof has the wrong length")
-    return version, name, proof
+    return version, raw_name, display_name, proof
 
 
 def parse_client_message(frame: dict[str, Any]) -> str:

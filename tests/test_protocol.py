@@ -207,8 +207,17 @@ def test_parse_server_hello_rejects(frame):
 
 def test_auth_round_trip():
     proof = crypto.make_proof(KEY, b"\x00" * 32, "Alice")
-    version, name, got_proof = p.parse_auth(p.auth_frame("  Alice  ", proof))
-    assert (version, name, got_proof) == (p.PROTOCOL_VERSION, "Alice", proof)
+    version, raw, display, got_proof = p.parse_auth(p.auth_frame("Alice", proof))
+    assert (version, raw, display, got_proof) == (p.PROTOCOL_VERSION, "Alice", "Alice", proof)
+
+
+def test_parse_auth_returns_both_the_raw_and_normalised_name():
+    """The proof binds the transmitted name; the roster shows the normalised one."""
+    proof = crypto.make_proof(KEY, b"\x00" * 32, "  Alice   Smith  ")
+    _, raw, display, _ = p.parse_auth(p.auth_frame("  Alice   Smith  ", proof))
+    assert raw == "  Alice   Smith  "
+    assert display == "Alice Smith"
+    assert crypto.verify_proof(KEY, b"\x00" * 32, raw, proof)
 
 
 @pytest.mark.parametrize(
