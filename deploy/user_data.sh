@@ -27,7 +27,11 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 systemctl enable --now docker
 usermod -aG docker ubuntu || true
 
+# The container runs as uid 10001 (appuser). A bind mount keeps the *host's* ownership,
+# unlike a named volume which inherits the image's, so the host directory has to be
+# owned by that uid or the server cannot write its certificate and salt.
 mkdir -p /var/lib/pychat
+chown 10001:10001 /var/lib/pychat
 chmod 700 /var/lib/pychat
 
 # Placeholder so the unit can start even before the real env file is written.

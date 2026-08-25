@@ -319,3 +319,18 @@ class TestConnection:
         assert drain(alice, net.Connected) is not None
         alice.stop(timeout=5)
         alice.send_message("into the void")  # must not raise
+
+
+class TestBackoff:
+    def test_sequence_matches_the_specification(self):
+        """1, 2, 4, 8, 16 then capped at 30 — not 0.5 as an off-by-one would give."""
+        delays = [net.NetworkClient.backoff_delay(n) for n in range(6)]
+        assert delays == [1.0, 2.0, 4.0, 8.0, 16.0, 30.0]
+
+    def test_is_capped(self):
+        assert net.NetworkClient.backoff_delay(50) == net.BACKOFF_CAP
+
+    def test_total_retry_window_covers_a_server_reboot(self):
+        """The six attempts must span long enough for a small instance to come back."""
+        total = sum(net.NetworkClient.backoff_delay(n) for n in range(net.MAX_RECONNECT_ATTEMPTS))
+        assert total >= 60

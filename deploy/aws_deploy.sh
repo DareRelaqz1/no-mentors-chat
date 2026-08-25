@@ -212,8 +212,26 @@ fi
 REMOTE
 
 log "Starting the pychat service"
-ssh "${SSH_OPTS[@]}" "ubuntu@$PUBLIC_IP" \
-  'sudo systemctl daemon-reload && sudo systemctl enable pychat.service && sudo systemctl restart pychat.service && sleep 12 && sudo systemctl is-active pychat.service'
+# Wait for it to settle rather than checking once: the unit pulls the image in
+# ExecStartPre, so a single is-active right after restart reports "activating" (exit 3)
+# and would abort this script under `set -e` while the deploy is in fact fine.
+ssh "${SSH_OPTS[@]}" "ubuntu@$PUBLIC_IP" bash -s <<'REMOTE' || die "the pychat service did not come up; check: sudo journalctl -u pychat.service"
+set -uo pipefail
+sudo systemctl daemon-reload
+sudo systemctl enable pychat.service >/dev/null 2>&1
+sudo systemctl restart pychat.service
+for _ in $(seq 1 30); do
+  state="$(sudo systemctl is-active pychat.service || true)"
+  case "$state" in
+    active)   echo "service is active"; exit 0 ;;
+    failed)   echo "service failed"; sudo journalctl -u pychat.service -n 30 --no-pager; exit 1 ;;
+    *)        sleep 5 ;;
+  esac
+done
+echo "service did not become active in time; last state: $state"
+sudo journalctl -u pychat.service -n 30 --no-pager
+exit 1
+REMOTE
 
 log "Server log"
 ssh "${SSH_OPTS[@]}" "ubuntu@$PUBLIC_IP" 'sudo journalctl -u pychat.service -n 20 --no-pager' || true

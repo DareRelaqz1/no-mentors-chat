@@ -311,17 +311,25 @@ class NetworkClient:
 
     # --- the connection lifecycle ---------------------------------------------------------
 
+    @staticmethod
+    def backoff_delay(failures: int) -> float:
+        """Seconds to wait before the next attempt: 1, 2, 4, 8, 16, then capped at 30."""
+        return min(2.0**failures, BACKOFF_CAP)
+
     async def _main(self) -> None:
-        attempt = 0
+        # Consecutive failed attempts. Kept separate from the attempt *number* on
+        # purpose: using one counter for both makes the first retry wait 2**-1 seconds
+        # and shortens the whole retry window, which matters when what you are waiting
+        # for is a server rebooting.
+        failures = 0
         connected_before = False
 
         while not self._stopping.is_set():
-            attempt += 1
-            self._emit(Connecting(attempt=attempt))
+            self._emit(Connecting(attempt=failures + 1))
             try:
                 await self._session(reconnected=connected_before)
                 connected_before = True
-                attempt = 0  # a successful session resets the backoff
+                failures = 0  # a successful session resets the backoff
                 if self._stopping.is_set():
                     break
                 self._emit(Disconnected("Connection lost.", will_retry=True))
@@ -338,6 +346,7 @@ class NetworkClient:
                     # report it and let the user fix the host, port or password.
                     self._emit(ConnectionFailed(message))
                     return
+                failures += 1
                 self._emit(Disconnected(message, will_retry=True))
             except asyncio.CancelledError:
                 break
@@ -346,16 +355,17 @@ class NetworkClient:
                 if not connected_before:
                     self._emit(ConnectionFailed(f"Unexpected error: {exc}"))
                     return
+                failures += 1
                 self._emit(Disconnected(f"Unexpected error: {exc}", will_retry=True))
 
             if self._stopping.is_set():
                 break
-            if attempt >= MAX_RECONNECT_ATTEMPTS:
-                self._emit(GaveUp(attempts=attempt))
+            if failures >= MAX_RECONNECT_ATTEMPTS:
+                self._emit(GaveUp(attempts=failures))
                 return
 
-            delay = min(2.0 ** (attempt - 1), BACKOFF_CAP)
-            self._emit(Reconnecting(attempt=attempt + 1, delay=delay))
+            delay = self.backoff_delay(failures)
+            self._emit(Reconnecting(attempt=failures + 1, delay=delay))
             if await self._sleep_or_stop(delay):
                 break
 
